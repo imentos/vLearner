@@ -86,43 +86,45 @@ void setup() {
   SdFile file;
   byte result;
 
-  if (debugging)
-  {
+  if (debugging) {
     Serial.begin(9600);
     Serial.println(F("Lilypad MP3 Player trigger sketch"));
   }
   
-  if (debugging) Serial.print(F("initialize SD card... "));
+  if (debugging) {
+    Serial.print(F("initialize SD card... "));
+  }
 
   result = sd.begin(SD_CS, SPI_HALF_SPEED); // 1 for success
   
-  if (result != 1) // Problem initializing the SD card
-  {
-    if (debugging) Serial.print(F("error, halting"));
+  if (result != 1) { // Problem initializing the SD card
+    if (debugging) {
+      Serial.print(F("error, halting"));
+    }
     errorBlink(1); // Halt forever, blink LED if present.
+  } else { 
+    if (debugging) Serial.println(F("success!"));
   }
-  else
-  if (debugging) Serial.println(F("success!"));
   // Start up the MP3 library
 
-  if (debugging) Serial.print(F("initialize MP3 chip... "));
+  if (debugging) {
+    Serial.print(F("initialize MP3 chip... "));
+  }
 
   result = MP3player.begin(); // 0 or 6 for success
 
   // Check the result, see the library readme for error codes.
 
-  if ((result != 0) && (result != 6)) // Problem starting up
-  {
-    if (debugging)
-    {
+  if ((result != 0) && (result != 6)) {// Problem starting up
+    if (debugging) {
       Serial.print(F("error code "));
       Serial.print(result);
       Serial.print(F(", halting."));
     }
     errorBlink(result); // Halt forever, blink red LED if present.
+  } else {
+    if (debugging) Serial.println(F("success!"));
   }
-  else
-  if (debugging) Serial.println(F("success!"));
 
   MP3player.setVolume(10,10);
 
@@ -186,13 +188,11 @@ void setup() {
   // don't do anything if the newTag array is full of zeroes
   if (strlen(newTag)== 0) {
     return;
-  }
-
-  else {
+  } else {
     int total = 0;
-
-    for (int ct=0; ct < kTags; ct++){
-      total = checkTag(newTag, knownTags[ct]);
+    int currentIndex = 0;
+    for (currentIndex=0; currentIndex < kTags; currentIndex++){
+      total = checkTag(newTag, knownTags[currentIndex]);
       if (total > 0) {
         break;
       }
@@ -208,28 +208,24 @@ void setup() {
 
       Serial.println("Success!");
 
+      // map from tag id to index because mp3 only supports 8.3 file names.
+      char mp3[idLen];
+      sprintf(mp3, "%d.mp3", currentIndex + 1);
+
       byte result;
-      result = MP3player.playMP3("1.MP3");
+      result = MP3player.playMP3(mp3);
 
-//        if (result == 0) last_t = t;  // Save playing trigger
-
-if(debugging)
-{
-  if(result != 0)
-  {
-    Serial.print(F("error "));
-    Serial.print(result);
-    Serial.print(F(" when trying to play track "));
-  }
-  else
-  {
-    Serial.print(F("playing "));
-  }
-  Serial.println("1.MP3");
-}
-}
-
-else {
+      if(debugging) {
+        if(result != 0) {
+          Serial.print(F("error "));
+          Serial.print(result);
+          Serial.print(F(" when trying to play track "));
+        } else {
+          Serial.print(F("playing "));
+        }
+        Serial.println(mp3);
+      }
+    } else {
         // This prints out unknown cards so you can add them to your knownTags as needed
         Serial.print("Unknown tag! ");
         Serial.print(newTag);
@@ -255,4 +251,10 @@ int checkTag(char nTag[], char oTag[]) {
   }
   return 1;
 }
+
+
+
+
+
+
 
