@@ -86,6 +86,11 @@ void setup() {
   SdFile file;
   byte result;
 
+//pinMode(EN_GPIO1,OUTPUT);
+//  digitalWrite(EN_GPIO1,LOW);  // MP3 mode / amp off
+
+
+
   if (debugging) {
     Serial.begin(9600);
     Serial.println(F("Lilypad MP3 Player trigger sketch"));
@@ -127,8 +132,8 @@ void setup() {
   }
 
   MP3player.setVolume(10,10);
-
-
+digitalWrite(EN_GPIO1,HIGH);
+  delay(2);
 
 
 
@@ -251,6 +256,7 @@ int checkTag(char nTag[], char oTag[]) {
   }
   return 1;
 }
+
 
 
 
