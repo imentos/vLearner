@@ -1,0 +1,10 @@
+{
+  "applications": {
+    "_default": {
+      "link": "vLearner"
+    },
+    "vLearner": {
+      "applicationId": "Ay8q1Mpu2lRLchKr9rQZtYuM8cBRuLU2zHiZ78fu"
+    }
+  }
+}
