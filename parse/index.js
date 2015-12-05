@@ -1,9 +1,11 @@
 var tessel = require('tessel');
 var wifi = require('wifi-cc3000');
 var https = require('https');
+var http = require('http');
 //var rfid = require('rfid-pn532').use(tessel.port['A']);
 var audio = require('audio-vs1053b').use(tessel.port['D']);
 var qs = require('querystring');
+var url = require('url');
 
 // Constants
 var PARSE_APP = 'Ay8q1Mpu2lRLchKr9rQZtYuM8cBRuLU2zHiZ78fu';
@@ -107,16 +109,9 @@ audio.on('ready', function() {
 
 
 function onPress() {
-    get('0443bc02bd2b80', function(data) {
+    get('test', function(data) {
         console.log(data.length);
-        audio.play(Buffer.concat(data), function(err) {
-            console.log("play audio");
-            // When we're done playing, clear recordings
-            // chunks = [];
-            // console.log('Hold the config button to record...');
-            // Wait for a button press again
-            // tessel.button.once('press', startRecording);
-        });
+        audio.play(Buffer.concat(data), function(err) {});
     });
     tessel.button.once('release', onRelease);
 }
@@ -124,6 +119,15 @@ function onPress() {
 function onRelease() {
     tessel.button.once('press', onPress);
 }
+
+
+
+
+
+
+
+
+
 
 function get(id, fnCallback) {
     console.log("get:" + id);
@@ -138,9 +142,11 @@ function get(id, fnCallback) {
             'X-Parse-Application-Id': PARSE_APP,
             'X-Parse-REST-API-Key': PARSE_KEY
         },
+        host: 'proxy',
+        port: 8080,
         hostname: 'api.parse.com',
         method: 'GET',
-        path: '/1/classes/Audio/RXVYgK38Wn', //?' + query,
+        path: '/1/classes/Audio?' + query,
         port: 443
     };
 
@@ -151,18 +157,76 @@ function get(id, fnCallback) {
         });
 
         response.on('end', function() {
-            var result = JSON.parse(str);
-            fnCallback(result.data);
+            var results = JSON.parse(str).results;
+            console.log(str);
+
+            getFile(results[0].file.url, fnCallback);
         });
     });
+    request.end();
 
-    // var request = https.request(options, function(response) {
-    //     // Got a response
-    //     response.on('data', function(data) {
-    //         fnCallback(data);
-    //         // console.log(data.toString().trim());
-    //     });
-    // });
+    request.on('error', function(err) {
+        console.error(err);
+    });
+}
+
+function getFile(urlPath, fnCallback) {
+    console.log("getFile:" + urlPath);
+    var urlObj = url.parse(urlPath);
+    var options = {
+        // host: 'proxy',
+        // port: 8080,
+        hostname: urlObj.hostname,
+        method: 'GET',
+        path: urlObj.path
+    };
+
+    var request = http.request(options, function(response) {
+        var chunks = [];
+        response.on('data', function(data) {
+            chunks.push(data);
+        });
+
+        response.on('end', function() {
+            fnCallback(chunks);
+        });
+    });
+    request.end();
+
+    request.on('error', function(err) {
+        console.error(err);
+    });
+}
+
+function postFile(id, file) {
+    console.log("postFile:" + file);
+    var options = {
+        headers: {
+            'Content-Type': 'audio/mpeg',
+            'X-Parse-Application-Id': PARSE_APP,
+            'X-Parse-REST-API-Key': PARSE_KEY
+        },
+        host: 'proxy',
+        port: 8080,
+        hostname: 'api.parse.com',
+        method: 'POST',
+        path: '/1/files/micdata.mp3',
+        port: 443
+    };
+
+    // Make request
+    var request = https.request(options, function(response) {
+        // Got a response
+        response.on('data', function(data) {
+            console.log(data.toString().trim());
+            chunks = [];
+            var result = JSON.parse(data.toString().trim());
+            post(id, result.name);
+
+        });
+    });
+    var song = fs.readFileSync('sample.mp3');
+    request.write(song);
     request.end();
 
     // Handle HTTPS error
@@ -171,14 +235,16 @@ function get(id, fnCallback) {
     });
 }
 
-function post(id, data) {
-    console.log("post:" + id + "," + data);
+function post(id, file) {
+    console.log("post:" + id + "," + file);
     var options = {
         headers: {
             'Content-Type': 'application/json',
             'X-Parse-Application-Id': PARSE_APP,
             'X-Parse-REST-API-Key': PARSE_KEY
         },
+        host: 'proxy',
+        port: 8080,
         hostname: 'api.parse.com',
         method: 'POST',
         path: '/1/classes/Audio',
@@ -195,7 +261,10 @@ function post(id, data) {
     });
     request.write(JSON.stringify({
         rfid: id,
-        data: data
+        file: {
+            "name": file,
+            "__type": "File"
+        }
     }));
     request.end();
 

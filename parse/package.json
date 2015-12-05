@@ -10,10 +10,6 @@
   "license": "ISC",
   "dependencies": {
     "audio-vs1053b": "^0.2.0",
-    "http": "0.0.0",
-    "https": "^1.0.0",
-    "node-parse-api": "^0.3.8",
-    "querystring": "^0.2.0",
     "rfid-pn532": "^0.1.9",
     "wifi-cc3000": "0.0.1"
   }

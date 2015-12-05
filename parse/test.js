@@ -2,6 +2,7 @@ var https = require('https');
 var http = require('http');
 var qs = require('querystring');
 var fs = require('fs');
+var url = require('url');
 
 // Constants
 var PARSE_APP = 'Ay8q1Mpu2lRLchKr9rQZtYuM8cBRuLU2zHiZ78fu';
@@ -55,44 +56,36 @@ function get(id, fnCallback) {
     });
 }
 
-function getFile(url) {
+function getFile(urlPath) {
+    console.log("getFile:" + urlPath);
+    var urlObj = url.parse(urlPath);
+    var options = {
+        // host: 'proxy',
+        // port: 8080,
+        hostname: urlObj.hostname,
+        method: 'GET',
+        path: urlObj.path
+    };
 
-    console.log("getFile:" + url);
-    //  NOT DELETE
-    var file = fs.createWriteStream("test.mp3");
-    var request = http.get(url, function (response, err) {
-        response.pipe(file);
+    // Make request
+    var request = http.request(options, function(response) {
+        var chunks = [];
+        response.on('data', function(data) {
+            chunks.push(data);
+        });
+
+        response.on('end', function() {
+            fs.writeFile("test.mp3", Buffer.concat(chunks), function(err) {
+                console.log("Wrote to a file");
+            });
+        });
     });
     request.end();
 
-    // console.log("getFile:" + url);
-    // var options = {
-    //     host: 'proxy',
-    //     port: 8080,
-    //     hostname: 'files.parsetfss.com',
-    //     method: 'GET',
-    //     path: '/af7cd3d2-5852-44d7-af81-1194c9af34ed/tfss-a0230e21-2328-4472-a6e2-33c7ad83dd2c-micdata.mp3'
-    // };
-
-    // // Make request
-    // var request = http.request(options, function(response) {
-    //     var chunks = [];
-    //     response.on('data', function(data) {
-    //         chunks.push(data);
-    //     });
-
-    //     response.on('end', function() {
-    //         fs.writeFile("test.mp3", Buffer.concat(chunks), function(err) {
-    //             console.log("Wrote to a file");
-    //         });
-    //     });
-    // });
-    // request.end();
-
-    // // Handle HTTPS error
-    // request.on('error', function(err) {
-    //     console.error(err);
-    // });
+    // Handle HTTPS error
+    request.on('error', function(err) {
+        console.error(err);
+    });
 }
 
 function postFile(id, file) {
