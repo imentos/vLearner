@@ -52,7 +52,6 @@ function initButton() {
     tessel.button.once('press', onPress);
 }
 
-
 // Create the websocket server, provide connection callback
 function init() {
     console.log("connected");
@@ -109,10 +108,23 @@ audio.on('ready', function() {
 
 
 function onPress() {
-    get('test', function(data) {
+    // console.log('startRecording for one second');
+    // audio.startRecording(function(err) {
+    //     setTimeout(function() {
+    //         console.log('stopRecording');
+    //         audio.stopRecording(function(err) {
+    //             postFile('test1', Buffer.concat(chunks), function() {
+    //                 chunks = [];
+    //             });
+    //         });
+    //     }, 1000);
+    // });
+
+    get('test1', function(data) {
         console.log(data.length);
         audio.play(Buffer.concat(data), function(err) {});
     });
+
     tessel.button.once('release', onRelease);
 }
 
@@ -198,38 +210,34 @@ function getFile(urlPath, fnCallback) {
     });
 }
 
-function postFile(id, file) {
-    console.log("postFile:" + file);
+function postFile(id, buffer, fnCallback) {
+    console.log("postFile:" + id);
     var options = {
         headers: {
             'Content-Type': 'audio/mpeg',
             'X-Parse-Application-Id': PARSE_APP,
             'X-Parse-REST-API-Key': PARSE_KEY
         },
-        host: 'proxy',
-        port: 8080,
+        // host: 'proxy',
+        // port: 8080,
         hostname: 'api.parse.com',
         method: 'POST',
-        path: '/1/files/micdata.mp3',
+        path: '/1/files/' + id + '.mp3',
         port: 443
     };
 
-    // Make request
     var request = https.request(options, function(response) {
-        // Got a response
         response.on('data', function(data) {
             console.log(data.toString().trim());
-            chunks = [];
             var result = JSON.parse(data.toString().trim());
             post(id, result.name);
-
+            fnCallback();
         });
     });
-    var song = fs.readFileSync('sample.mp3');
-    request.write(song);
+    // var song = fs.readFileSync('sample.mp3');
+    request.write(buffer);
     request.end();
 
-    // Handle HTTPS error
     request.on('error', function(err) {
         console.error(err);
     });
@@ -243,17 +251,15 @@ function post(id, file) {
             'X-Parse-Application-Id': PARSE_APP,
             'X-Parse-REST-API-Key': PARSE_KEY
         },
-        host: 'proxy',
-        port: 8080,
+        // host: 'proxy',
+        // port: 8080,
         hostname: 'api.parse.com',
         method: 'POST',
         path: '/1/classes/Audio',
         port: 443
     };
 
-    // Make request
     var request = https.request(options, function(response) {
-        // Got a response
         response.on('data', function(data) {
             console.log(data.toString().trim());
             chunks = [];
@@ -268,7 +274,6 @@ function post(id, file) {
     }));
     request.end();
 
-    // Handle HTTPS error
     request.on('error', function(err) {
         console.error(err);
     });
