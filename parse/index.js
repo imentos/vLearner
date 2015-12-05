@@ -1,7 +1,7 @@
 var tessel = require('tessel');
 var wifi = require('wifi-cc3000');
 var https = require('https');
-var rfid = require('rfid-pn532').use(tessel.port['A']);
+//var rfid = require('rfid-pn532').use(tessel.port['A']);
 var audio = require('audio-vs1053b').use(tessel.port['D']);
 var qs = require('querystring');
 
@@ -22,13 +22,13 @@ var port = 8000;
 
 // Workaround: wait 3secs before starting
 setTimeout(function() {
-    init();
-}, 10000);
+    initButton();
+}, 3000);
 
 function checkConnection() {
     if (wifi.isConnected()) {
         console.log('Connected.');
-        init();
+        initButton();
     } else {
         console.log('Connecting...');
         wifi.connect(wifiSettings, function(err, res) {
@@ -46,6 +46,9 @@ wifi.on('disconnect', function() {
     checkConnection();
 });
 
+function initButton() {
+    tessel.button.once('press', onPress);
+}
 
 
 // Create the websocket server, provide connection callback
@@ -61,7 +64,7 @@ function init() {
 
 
         get(currentId, function(data) {
-            audio.play(data, function(err) {
+            audio.play(Buffer.concat(data), function(err) {
                 console.log("play audio");
                 // When we're done playing, clear recordings
                 // chunks = [];
@@ -94,32 +97,39 @@ audio.on('ready', function() {
     });
 });
 
-rfid.on('ready', function(version) {
-    console.log('Ready to read RFID card');
-});
+// rfid.on('ready', function(version) {
+//     console.log('Ready to read RFID card');
+// });
 
 
 
 
 
 
-// function onPress() {
-//     post(200);
+function onPress() {
+    get('0443bc02bd2b80', function(data) {
+        console.log(data.length);
+        audio.play(Buffer.concat(data), function(err) {
+            console.log("play audio");
+            // When we're done playing, clear recordings
+            // chunks = [];
+            // console.log('Hold the config button to record...');
+            // Wait for a button press again
+            // tessel.button.once('press', startRecording);
+        });
+    });
+    tessel.button.once('release', onRelease);
+}
 
-//     tessel.button.once('release', onRelease);
-// }
-
-// function onRelease() {
-//     get();
-
-//     tessel.button.once('press', onPress);
-// }
+function onRelease() {
+    tessel.button.once('press', onPress);
+}
 
 function get(id, fnCallback) {
     console.log("get:" + id);
     var query = qs.stringify({
         where: JSON.stringify({
-            rfid: currentId
+            rfid: id
         })
     });
     var options = {
@@ -130,18 +140,29 @@ function get(id, fnCallback) {
         },
         hostname: 'api.parse.com',
         method: 'GET',
-        path: '/1/classes/Audio?' + query,
+        path: '/1/classes/Audio/RXVYgK38Wn', //?' + query,
         port: 443
     };
 
-    // Make request
     var request = https.request(options, function(response) {
-        // Got a response
+        var str = '';
         response.on('data', function(data) {
-            fnCallback(data);
-            // console.log(data.toString().trim());
+            str += data;
+        });
+
+        response.on('end', function() {
+            var result = JSON.parse(str);
+            fnCallback(result.data);
         });
     });
+
+    // var request = https.request(options, function(response) {
+    //     // Got a response
+    //     response.on('data', function(data) {
+    //         fnCallback(data);
+    //         // console.log(data.toString().trim());
+    //     });
+    // });
     request.end();
 
     // Handle HTTPS error
