@@ -2,7 +2,7 @@ var tessel = require('tessel');
 var wifi = require('wifi-cc3000');
 var https = require('https');
 var http = require('http');
-//var rfid = require('rfid-pn532').use(tessel.port['A']);
+var rfid = require('rfid-pn532').use(tessel.port['A']);
 var audio = require('audio-vs1053b').use(tessel.port['D']);
 var qs = require('querystring');
 var url = require('url');
@@ -21,16 +21,17 @@ var wifiSettings = {
 var currentId = null;
 var chunks = [];
 var port = 8000;
+var configPressed = false;
 
 // Workaround: wait 3secs before starting
 setTimeout(function() {
-    initButton();
+    init();
 }, 3000);
 
 function checkConnection() {
     if (wifi.isConnected()) {
         console.log('Connected.');
-        initButton();
+        init();
     } else {
         console.log('Connecting...');
         wifi.connect(wifiSettings, function(err, res) {
@@ -48,88 +49,68 @@ wifi.on('disconnect', function() {
     checkConnection();
 });
 
-function initButton() {
-    tessel.button.once('press', onPress);
-}
-
-// Create the websocket server, provide connection callback
 function init() {
     console.log("connected");
+    tessel.button.once('press', onPress);
 
     rfid.on('data', function(card) {
+        console.log("rfid tagged");
         if (card.uid.toString('hex') === currentId) {
+            console.log("same");
             return;
         }
         currentId = card.uid.toString('hex');
         console.log('UID:', currentId);
 
+        // when hold config button and tag rfid
+        if (configPressed) {
+            console.log('start recording');
 
-        get(currentId, function(data) {
-            audio.play(Buffer.concat(data), function(err) {
-                console.log("play audio");
-                // When we're done playing, clear recordings
-                // chunks = [];
-                // console.log('Hold the config button to record...');
-                // Wait for a button press again
-                // tessel.button.once('press', startRecording);
+            audio.startRecording(function(err) {
+                tessel.button.once('release', onRelease);
             });
-        });
 
+        } else {
+            console.log('start playing');
 
-
-
-
-        // console.log('startRecording for one second');
-        // audio.startRecording(function(err) {
-        //     setTimeout(function() {
-        //         console.log('stopRecording');
-        //         audio.stopRecording(function(err) {
-        //             post(currentId, Buffer.concat(chunks));
-        //         });
-        //     }, 1000);
-        // });
+            get(currentId, function(data) {
+                console.log("audo.play");
+                audio.play(Buffer.concat(data), function(err) {
+                    currentId = null;
+                    chunks = [];
+                });
+            });
+        }
     });
 }
 
 audio.on('ready', function() {
     console.log('Ready to record audio');
     audio.on('data', function(data) {
+        console.log('chunks is added data');
         chunks.push(data);
     });
 });
 
-// rfid.on('ready', function(version) {
-//     console.log('Ready to read RFID card');
-// });
-
-
-
-
-
+rfid.on('ready', function(version) {
+    console.log('Ready to read RFID card');
+});
 
 function onPress() {
-    // console.log('startRecording for one second');
-    // audio.startRecording(function(err) {
-    //     setTimeout(function() {
-    //         console.log('stopRecording');
-    //         audio.stopRecording(function(err) {
-    //             postFile('test1', Buffer.concat(chunks), function() {
-    //                 chunks = [];
-    //             });
-    //         });
-    //     }, 1000);
-    // });
-
-    get('test1', function(data) {
-        console.log(data.length);
-        audio.play(Buffer.concat(data), function(err) {});
-    });
-
-    tessel.button.once('release', onRelease);
+    console.log("config pressed");
+    configPressed = true;
 }
 
 function onRelease() {
-    tessel.button.once('press', onPress);
+    console.log("config released");
+    audio.stopRecording(function(err) {
+        postFile(currentId, Buffer.concat(chunks), function() {
+            chunks = [];
+            currentId = null;
+            configPressed = false;
+            tessel.button.once('press', onPress);
+        });
+    });
 }
 
 
@@ -172,7 +153,7 @@ function get(id, fnCallback) {
             var results = JSON.parse(str).results;
             console.log(str);
 
-            getFile(results[0].file.url, fnCallback);
+            getFile(results[results.length - 1].file.url, fnCallback);
         });
     });
     request.end();
@@ -194,13 +175,13 @@ function getFile(urlPath, fnCallback) {
     };
 
     var request = http.request(options, function(response) {
-        var chunks = [];
+        var buffer = [];
         response.on('data', function(data) {
-            chunks.push(data);
+            buffer.push(data);
         });
 
         response.on('end', function() {
-            fnCallback(chunks);
+            fnCallback(buffer);
         });
     });
     request.end();
@@ -234,7 +215,6 @@ function postFile(id, buffer, fnCallback) {
             fnCallback();
         });
     });
-    // var song = fs.readFileSync('sample.mp3');
     request.write(buffer);
     request.end();
 
