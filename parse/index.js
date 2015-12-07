@@ -75,10 +75,8 @@ function init() {
 
             get(currentId, function(data) {
                 console.log("audo.play");
-                audio.play(Buffer.concat(data), function(err) {
-                    currentId = null;
-                    chunks = [];
-                });
+                currentId = null;
+                chunks = [];
             });
         }
     });
@@ -86,9 +84,11 @@ function init() {
 
 audio.on('ready', function() {
     console.log('Ready to record audio');
-    audio.on('data', function(data) {
-        console.log('chunks is added data');
-        chunks.push(data);
+    audio.setOutput('lineOut', function(error) {
+        audio.on('data', function(data) {
+            console.log('chunks is added data');
+            chunks.push(data);
+        });
     });
 });
 
@@ -174,15 +174,10 @@ function getFile(urlPath, fnCallback) {
         path: urlObj.path
     };
 
+    var stream = audio.createPlayStream();
     var request = http.request(options, function(response) {
-        var buffer = [];
-        response.on('data', function(data) {
-            buffer.push(data);
-        });
-
-        response.on('end', function() {
-            fnCallback(buffer);
-        });
+        response.pipe(stream);
+        fnCallback();
     });
     request.end();
 
